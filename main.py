@@ -173,7 +173,7 @@ def main():
         print("=> loading model '{}'".format(model_file))
 
         if os.path.isfile(model_file):
-            model.load_state_dict(model_file)
+            model.load_state_dict(torch.load(model_file))
             print("=> loaded model '{}'".format(model_file))
             if args.test:
                 test(args, model, device, test_loader)
@@ -181,7 +181,7 @@ def main():
                 show_statistic_result(model)
         else:
             print("=> loading model failed '{}'".format(model_file))
-            
+
     else:
         checkpoint_file = 'checkpoint_mnist.pth.tar' if args.dataset == "mnist" else 'checkpoint_cifar10.pth.tar'
         
