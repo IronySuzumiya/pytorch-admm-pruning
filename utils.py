@@ -103,8 +103,10 @@ def update_U(U, X, Z):
     return new_U
 
 
-def prune_weight(args, weight, device, percent):
+def prune_weight(args, param, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
+    weight = param.detach().cuda().clone()
+
     if args.structured:
         rram_proj = weight.view(weight.shape[0], -1).T
         tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
@@ -139,7 +141,7 @@ def apply_prune(model, device, args):
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
             mask = prune_weight(args, param, device, args.percent[idx])
-            #param.data.mul_(mask)
+            param.data.mul_(mask)
             # param.data = torch.Tensor(weight_pruned).to(device)
             dict_mask[name] = mask
             idx += 1
