@@ -35,8 +35,8 @@ def initialize_Z_and_U(model):
     U = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            Z += (param.detach().cpu().clone(),)
-            U += (torch.zeros_like(param).cpu(),)
+            Z += (param.detach().cuda().clone(),)
+            U += (torch.zeros_like(param).cuda(),)
     return Z, U
 
 
@@ -44,12 +44,12 @@ def update_X(model):
     X = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            X += (param.detach().cpu().clone(),)
+            X += (param.detach().cuda().clone(),)
     return X
 
 
 def scale(input, shape, n1, n2):
-    output = torch.zeros((shape[0], shape[1]), dtype=torch.bool)
+    output = torch.zeros((shape[0], shape[1]), dtype=torch.bool).cuda()
     for i in range(input.shape[0]):
         for j in range(input.shape[1]):
             output[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2] = input[i, j]
@@ -103,13 +103,23 @@ def update_U(U, X, Z):
     return new_U
 
 
-def prune_weight(weight, device, percent):
+def prune_weight(args, weight, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
-    weight_numpy = weight.detach().cpu().numpy()
-    pcen = np.percentile(abs(weight_numpy), 100*percent)
-    under_threshold = abs(weight_numpy) < pcen
-    weight_numpy[under_threshold] = 0
-    mask = torch.Tensor(abs(weight_numpy) >= pcen).to(device)
+    if args.structured:
+        rram_proj = weight.view(weight.shape[0], -1).T
+        tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
+        for i in range(tmp.shape[0]):
+            for j in range(tmp.shape[1]):
+                tmp[i, j] = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+        pcen = np.percentile(tmp, 100*percent)
+        under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
+        rram_proj.data[under_threshold] = 0
+    else:
+        pcen = np.percentile(abs(weight), 100*percent)
+        under_threshold = abs(weight) < pcen
+        weight.data[under_threshold] = 0
+
+    mask = torch.Tensor(abs(weight) >= pcen).to(device)
     return mask
 
 
@@ -128,8 +138,8 @@ def apply_prune(model, device, args):
     idx = 0
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            mask = prune_weight(param, device, args.percent[idx])
-            param.data.mul_(mask)
+            mask = prune_weight(args, param, device, args.percent[idx])
+            #param.data.mul_(mask)
             # param.data = torch.Tensor(weight_pruned).to(device)
             dict_mask[name] = mask
             idx += 1
