@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+n1 = 2
+n2 = 2
 
 def regularized_nll_loss(args, model, output, target):
     index = 0
@@ -52,7 +54,7 @@ def scale(input, shape, n1, n2):
         for j in range(input.shape[1]):
             output[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2] = input[i, j]
     return output
-    
+
 
 def update_Z(X, U, args):
     new_Z = ()
@@ -60,8 +62,6 @@ def update_Z(X, U, args):
     for x, u in zip(X, U):
         z = x + u
         rram_proj = z.view(z.shape[0], -1).T
-        n1 = 2
-        n2 = 2
         tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
         for i in range(tmp.shape[0]):
             for j in range(tmp.shape[1]):
@@ -170,3 +170,14 @@ def print_prune(model):
     print("total nonzero parameters after pruning: {} / {} ({:.4f}%)".
           format(prune_param, total_param,
                  100 * (total_param - prune_param) / total_param))
+
+def show_statistic_result(model):
+    n_non_zero = [0, 0, 0, 0, 0]
+    for name, param in model.named_parameters():
+        if name.split('.')[-1] == "weight":
+            rram_proj = param.detach().cpu().clone().view(param.shape[0], -1).T
+            for i in range((rram_proj.shape[0] - 1) // n1 + 1):
+                for j in range((rram_proj.shape[1] - 1) // n2 + 1):
+                    ou = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2]
+                    n_non_zero[ou.nonzero().size()] += 1
+    print("n_non_zero: {}".format(n_non_zero))

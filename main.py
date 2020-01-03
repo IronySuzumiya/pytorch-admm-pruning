@@ -6,7 +6,7 @@ from optimizer import PruneAdam
 from model import LeNet, AlexNet
 from utils import regularized_nll_loss, admm_loss, \
     initialize_Z_and_U, update_X, update_Z, update_Z_l1, update_U, \
-    print_convergence, print_prune, apply_prune, apply_l1_prune
+    print_convergence, print_prune, apply_prune, apply_l1_prune, show_statistic_result
 from torchvision import datasets, transforms
 from tqdm import tqdm
 import os
@@ -113,6 +113,10 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
+    parser.add_argument('--test', action='store_true', default=False,
+                        help='For Testing the current Model')
+    parser.add_argument('--stat', action='store_true', default=False,
+                        help='For showing the statistic result of the current Model')
     args = parser.parse_args()
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -163,33 +167,49 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
-    checkpoint_file = 'checkpoint_mnist.pth.tar' if args.dataset == "mnist" else 'checkpoint_cifar10.pth.tar'
-    
-    if not os.path.isfile(checkpoint_file):
-        pre_train(args, model, device, train_loader, test_loader, optimizer)
-        torch.save({
-            'epoch': args.num_pre_epochs,
-            'state_dict': model.state_dict(),
-            'optimizer': optimizer.state_dict()
-        }, checkpoint_file)
-    else:
-        print("=> loading checkpoint '{}'".format(checkpoint_file))
-        checkpoint = torch.load(checkpoint_file)
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        print("=> loaded checkpoint '{}'".format(checkpoint_file))
+    if args.stat or args.test:
+        model_file = "mnist_cnn.pt" if args.dataset == "mnist" else 'cifar10_cnn.pt'
 
-    train(args, model, device, train_loader, test_loader, optimizer)
-    mask = apply_l1_prune(model, device, args) if args.l1 else apply_prune(model, device, args)
-    print_prune(model)
-    test(args, model, device, test_loader)
-    retrain(args, model, mask, device, train_loader, test_loader, optimizer)
+        print("=> loading model '{}'".format(model_file))
 
-    if args.save_model:
-        if args.dataset == "mnist":
-            torch.save(model.state_dict(), "mnist_cnn.pt")
+        if os.path.isfile(model_file):
+            model.load_state_dict(model_file)
+            print("=> loaded model '{}'".format(model_file))
+            if args.test:
+                test(args, model, device, test_loader)
+            if args.stat:
+                show_statistic_result(model)
         else:
-            torch.save(model.state_dict(), "cifar10_cnn.pt")
+            print("=> loading model failed '{}'".format(model_file))
+            
+    else:
+        checkpoint_file = 'checkpoint_mnist.pth.tar' if args.dataset == "mnist" else 'checkpoint_cifar10.pth.tar'
+        
+        if not os.path.isfile(checkpoint_file):
+            pre_train(args, model, device, train_loader, test_loader, optimizer)
+            torch.save({
+                'epoch': args.num_pre_epochs,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }, checkpoint_file)
+        else:
+            print("=> loading checkpoint '{}'".format(checkpoint_file))
+            checkpoint = torch.load(checkpoint_file)
+            model.load_state_dict(checkpoint['state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            print("=> loaded checkpoint '{}'".format(checkpoint_file))
+
+        train(args, model, device, train_loader, test_loader, optimizer)
+        mask = apply_l1_prune(model, device, args) if args.l1 else apply_prune(model, device, args)
+        print_prune(model)
+        test(args, model, device, test_loader)
+        retrain(args, model, mask, device, train_loader, test_loader, optimizer)
+
+        if args.save_model:
+            if args.dataset == "mnist":
+                torch.save(model.state_dict(), "mnist_cnn.pt")
+            else:
+                torch.save(model.state_dict(), "cifar10_cnn.pt")
 
 if __name__ == "__main__":
     main()
