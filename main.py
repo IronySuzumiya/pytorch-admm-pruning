@@ -15,7 +15,7 @@ def pre_train(args, model, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_pre_epochs):
         print('Pre epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=10)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -30,7 +30,7 @@ def train(args, model, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_epochs):
         model.train()
         print('Epoch: {}'.format(epoch + 1))
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=10)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -67,7 +67,7 @@ def retrain(args, model, mask, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_re_epochs):
         print('Re epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=10)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
