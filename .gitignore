@@ -1,3 +1,6 @@
 __pycache__
 .idea
 data
+*.pt
+*.pth.tar
+.vscode

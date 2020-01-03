@@ -186,7 +186,7 @@ def main():
             print("=> loading model failed '{}'".format(model_file))
 
     else:
-        checkpoint_file = 'checkpoint{}{}.pth.tar'.format("_mnist" if args.dataset == "mnist" else "_cifar10", "_structured" if args.structured else "")
+        checkpoint_file = 'checkpoint{}.pth.tar'.format("_mnist" if args.dataset == "mnist" else "_cifar10")
         
         if not os.path.isfile(checkpoint_file):
             pre_train(args, model, device, train_loader, test_loader, optimizer)
