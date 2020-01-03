@@ -113,6 +113,8 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
+    parser.add_argument('--structured', action='store_true', default=False,
+                        help='Enabling Structured Pruning')
     parser.add_argument('--test', action='store_true', default=False,
                         help='For Testing the current Model')
     parser.add_argument('--stat', action='store_true', default=False,
@@ -167,9 +169,10 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
-    if args.stat or args.test:
-        model_file = "mnist_cnn.pt" if args.dataset == "mnist" else 'cifar10_cnn.pt'
+    model_file = "mnist_cnn{}.pt".format("_structured" if args.structured else "") if args.dataset == "mnist" \
+            else 'cifar10_cnn{}.pt'.format("_structured" if args.structured else "")
 
+    if args.stat or args.test:
         print("=> loading model '{}'".format(model_file))
 
         if os.path.isfile(model_file):
@@ -183,7 +186,7 @@ def main():
             print("=> loading model failed '{}'".format(model_file))
 
     else:
-        checkpoint_file = 'checkpoint_mnist.pth.tar' if args.dataset == "mnist" else 'checkpoint_cifar10.pth.tar'
+        checkpoint_file = 'checkpoint{}{}.pth.tar'.format("_mnist" if args.dataset == "mnist" else "_cifar10", "_structured" if args.structured else "")
         
         if not os.path.isfile(checkpoint_file):
             pre_train(args, model, device, train_loader, test_loader, optimizer)
@@ -206,10 +209,7 @@ def main():
         retrain(args, model, mask, device, train_loader, test_loader, optimizer)
 
         if args.save_model:
-            if args.dataset == "mnist":
-                torch.save(model.state_dict(), "mnist_cnn.pt")
-            else:
-                torch.save(model.state_dict(), "cifar10_cnn.pt")
+            torch.save(model.state_dict(), model_file)
 
 if __name__ == "__main__":
     main()
