@@ -46,6 +46,14 @@ def update_X(model):
     return X
 
 
+def scale(input, shape, n1, n2):
+    output = torch.zeros((shape[0], shape[1]), dtype=torch.bool)
+    for i in range(input.shape[0]):
+        for j in range(input.shape[1]):
+            output[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2] = input[i, j]
+    return output
+    
+
 def update_Z(X, U, args):
     new_Z = ()
     idx = 0
