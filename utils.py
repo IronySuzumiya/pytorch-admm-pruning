@@ -35,8 +35,8 @@ def initialize_Z_and_U(model):
     U = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            Z += (param.detach().cuda().clone(),)
-            U += (torch.zeros_like(param).cuda(),)
+            Z += (param.detach().cpu().clone(),)
+            U += (torch.zeros_like(param).cpu(),)
     return Z, U
 
 
@@ -44,12 +44,12 @@ def update_X(model):
     X = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            X += (param.detach().cuda().clone(),)
+            X += (param.detach().cpu().clone(),)
     return X
 
 
 def scale(input, shape, n1, n2):
-    output = torch.zeros((shape[0], shape[1]), dtype=torch.bool).cuda()
+    output = torch.zeros((shape[0], shape[1]), dtype=torch.bool)
     for i in range(input.shape[0]):
         for j in range(input.shape[1]):
             output[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2] = input[i, j]
@@ -105,7 +105,7 @@ def update_U(U, X, Z):
 
 def prune_weight(args, param, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
-    weight = param.detach().cuda().clone()
+    weight = param.detach().cpu().clone()
 
     if args.structured:
         rram_proj = weight.view(weight.shape[0], -1).T
