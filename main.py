@@ -9,13 +9,13 @@ from utils import regularized_nll_loss, admm_loss, \
     print_convergence, print_prune, apply_prune, apply_l1_prune
 from torchvision import datasets, transforms
 from tqdm import tqdm
+import os
 
-
-def train(args, model, device, train_loader, test_loader, optimizer):
+def pre_train(args, model, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_pre_epochs):
         print('Pre epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -24,11 +24,13 @@ def train(args, model, device, train_loader, test_loader, optimizer):
             optimizer.step()
         test(args, model, device, test_loader)
 
+
+def train(args, model, device, train_loader, test_loader, optimizer):
     Z, U = initialize_Z_and_U(model)
     for epoch in range(args.num_epochs):
         model.train()
         print('Epoch: {}'.format(epoch + 1))
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -65,7 +67,7 @@ def retrain(args, model, mask, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_re_epochs):
         print('Re epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader)):
+        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True)):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -161,12 +163,33 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
+    checkpoint_file = 'checkpoint_mnist.pth.tar' if args.dataset == "mnist" else 'checkpoint_cifar10.pth.tar'
+    
+    if not os.path.isfile(checkpoint_file):
+        pre_train(args, model, device, train_loader, test_loader, optimizer)
+        torch.save({
+            'epoch': args.num_pre_epochs,
+            'state_dict': model.state_dict(),
+            'optimizer': optimizer.state_dict()
+        }, checkpoint_file)
+    else:
+        print("=> loading checkpoint '{}'".format(checkpoint_file))
+        checkpoint = torch.load(checkpoint_file)
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print("=> loaded checkpoint '{}'".format(checkpoint_file))
+
     train(args, model, device, train_loader, test_loader, optimizer)
     mask = apply_l1_prune(model, device, args) if args.l1 else apply_prune(model, device, args)
     print_prune(model)
     test(args, model, device, test_loader)
     retrain(args, model, mask, device, train_loader, test_loader, optimizer)
 
+    if args.save_model:
+        if args.dataset == "mnist":
+            torch.save(model.state_dict(), "mnist_cnn.pt")
+        else:
+            torch.save(model.state_dict(), "cifar10_cnn.pt")
 
 if __name__ == "__main__":
     main()

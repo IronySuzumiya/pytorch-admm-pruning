@@ -51,9 +51,19 @@ def update_Z(X, U, args):
     idx = 0
     for x, u in zip(X, U):
         z = x + u
-        pcen = np.percentile(abs(z), 100*args.percent[idx])
-        under_threshold = abs(z) < pcen
-        z.data[under_threshold] = 0
+        rram_proj = z.view(z.shape[0], -1).T
+        n1 = 2
+        n2 = 2
+        tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
+        for i in range(tmp.shape[0]):
+            for j in range(tmp.shape[1]):
+                tmp[i, j] = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+        #pcen = np.percentile(abs(z), 100*args.percent[idx])
+        #under_threshold = abs(z) < pcen
+        #z.data[under_threshold] = 0
+        pcen = np.percentile(tmp, 100*args.percent[idx])
+        under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
+        rram_proj.data[under_threshold] = 0
         new_Z += (z,)
         idx += 1
     return new_Z
