@@ -179,5 +179,5 @@ def show_statistic_result(model):
             for i in range((rram_proj.shape[0] - 1) // n1 + 1):
                 for j in range((rram_proj.shape[1] - 1) // n2 + 1):
                     ou = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2]
-                    n_non_zero[ou.nonzero().size()] += 1
+                    n_non_zero[ou.nonzero().shape[0]] += 1
     print("n_non_zero: {}".format(n_non_zero))
