@@ -75,7 +75,7 @@ def update_Z(X, U, args):
                 for j in range(tmp.shape[1]):
                     tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
             pcen = np.percentile(tmp, 100*args.percent[idx])
-            upon_threshold = (tmp >= pcen).type(rram.type())
+            upon_threshold = tmp >= pcen
             res1 = rram.shape[0] % n1
             res2 = rram.shape[1] % n2
             for i in range(n1):
@@ -132,7 +132,7 @@ def prune_weight(args, param, device, percent):
             for j in range(tmp.shape[1]):
                 tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
         pcen = np.percentile(tmp, 100*percent)
-        upon_threshold = (tmp >= pcen).type(rram.type())
+        upon_threshold = tmp >= pcen
         res1 = rram.shape[0] % n1
         res2 = rram.shape[1] % n2
         for i in range(n1):
