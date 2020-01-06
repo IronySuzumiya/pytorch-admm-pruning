@@ -3,9 +3,6 @@ import torch.nn.functional as F
 import numpy as np
 from torch.multiprocessing import Pool, Manager
 
-n1 = 2
-n2 = 2
-
 def regularized_nll_loss(args, model, output, target):
     index = 0
     loss = F.nll_loss(output, target)
@@ -70,21 +67,21 @@ def update_Z(X, U, args):
         z = x + u
         if args.structured:
             rram = z.view(z.shape[0], -1).T
-            tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
+            tmp = torch.zeros(((rram.shape[0] - 1) // args.n1 + 1, (rram.shape[1] - 1) // args.n2 + 1))
             for i in range(tmp.shape[0]):
                 for j in range(tmp.shape[1]):
-                    tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+                    tmp[i, j] = rram[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2].norm()
             pcen = np.percentile(tmp, 100*args.percent[idx])
             upon_threshold = tmp >= pcen
-            res1 = rram.shape[0] % n1
-            res2 = rram.shape[1] % n2
-            for i in range(n1):
-                for j in range(n2):
+            res1 = rram.shape[0] % args.n1
+            res2 = rram.shape[1] % args.n2
+            for i in range(args.n1):
+                for j in range(args.n2):
                     if i < res1 or res1 == 0:
-                        rram.data[i::n1, j::n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                        rram.data[i::args.n1, j::args.n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                     else:
-                        rram.data[i::n1, j::n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
-            #under_threshold = scale(tmp < pcen, rram.shape, n1, n2)
+                        rram.data[i::args.n1, j::args.n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+            #under_threshold = scale(tmp < pcen, rram.shape, args.n1, args.n2)
             #rram.data[under_threshold] = 0
         else:
             pcen = np.percentile(abs(z), 100*args.percent[idx])
@@ -126,22 +123,22 @@ def prune_weight(args, param, device, percent):
         mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
         rram = weight.view(weight.shape[0], -1).T
         rram_mask = mask.view(mask.shape[0], -1).T
-        tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
+        tmp = torch.zeros(((rram.shape[0] - 1) // args.n1 + 1, (rram.shape[1] - 1) // args.n2 + 1))
         for i in range(tmp.shape[0]):
             for j in range(tmp.shape[1]):
-                tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+                tmp[i, j] = rram[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2].norm()
         pcen = np.percentile(tmp, 100*percent)
         upon_threshold = tmp >= pcen
-        res1 = rram.shape[0] % n1
-        res2 = rram.shape[1] % n2
-        for i in range(n1):
-            for j in range(n2):
+        res1 = rram.shape[0] % args.n1
+        res2 = rram.shape[1] % args.n2
+        for i in range(args.n1):
+            for j in range(args.n2):
                 if i < res1 or res1 == 0:
-                    rram_mask.data[i::n1, j::n2] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                    rram_mask.data[i::args.n1, j::args.n2] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                 else:
-                    rram_mask.data[i::n1, j::n2] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
-                rram.data[i::n1, j::n2] *= rram_mask.data[i::n1, j::n2]
-        #under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
+                    rram_mask.data[i::args.n1, j::args.n2] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+                rram.data[i::args.n1, j::args.n2] *= rram_mask.data[i::args.n1, j::args.n2]
+        #under_threshold = scale(tmp < pcen, rram_proj.shape, args.n1, args.n2)
         #rram_proj.data[under_threshold] = 0
     else:
         weight = param.detach().cpu().clone()
@@ -213,13 +210,13 @@ def print_prune(model):
           format(prune_param, total_param,
                  100 * (total_param - prune_param) / total_param))
 
-def show_statistic_result(model):
+def show_statistic_result(args, model):
     n_non_zero = [0, 0, 0, 0, 0]
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
             rram_proj = param.detach().cpu().clone().view(param.shape[0], -1).T
-            for i in range((rram_proj.shape[0] - 1) // n1 + 1):
-                for j in range((rram_proj.shape[1] - 1) // n2 + 1):
-                    ou = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2]
+            for i in range((rram_proj.shape[0] - 1) // args.n1 + 1):
+                for j in range((rram_proj.shape[1] - 1) // args.n2 + 1):
+                    ou = rram_proj[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2]
                     n_non_zero[ou.nonzero().shape[0]] += 1
     print("n_non_zero: {}".format(n_non_zero))

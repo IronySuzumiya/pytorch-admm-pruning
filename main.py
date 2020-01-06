@@ -119,6 +119,10 @@ def main():
                         help='For Testing the current Model')
     parser.add_argument('--stat', action='store_true', default=False,
                         help='For showing the statistic result of the current Model')
+    parser.add_argument('--n1', type=int, default=2, metavar='N',
+                        help='ReRAM OU size (row number) (default: 2)')
+    parser.add_argument('--n2', type=int, default=2, metavar='N',
+                        help='ReRAM OU size (column number) (default: 2)')
     args = parser.parse_args()
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -181,7 +185,7 @@ def main():
             if args.test:
                 test(args, model, device, test_loader)
             if args.stat:
-                show_statistic_result(model)
+                show_statistic_result(args, model)
         else:
             print("=> loading model failed '{}'".format(model_file))
 
