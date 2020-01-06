@@ -121,10 +121,9 @@ def update_U(U, X, Z):
 
 def prune_weight(args, param, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
-    weight = param.detach().cpu().clone()
-
     if args.structured:
-        mask = torch.zeros_like(weight, dtype=torch.bool)
+        weight = param.detach().to(device).clone()
+        mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
         rram = weight.view(weight.shape[0], -1).T
         rram_mask = mask.view(mask.shape[0], -1).T
         tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
@@ -145,6 +144,7 @@ def prune_weight(args, param, device, percent):
         #under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
         #rram_proj.data[under_threshold] = 0
     else:
+        weight = param.detach().cpu().clone()
         pcen = np.percentile(abs(weight), 100*percent)
         under_threshold = abs(weight) < pcen
         weight.data[under_threshold] = 0
