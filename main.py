@@ -8,14 +8,14 @@ from utils import regularized_nll_loss, admm_loss, \
     initialize_Z_and_U, update_X, update_Z, update_Z_l1, update_U, \
     print_convergence, print_prune, apply_prune, apply_l1_prune, show_statistic_result
 from torchvision import datasets, transforms
-from tqdm import tqdm
+#from tqdm import tqdm
 import os
 
 def pre_train(args, model, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_pre_epochs):
         print('Pre epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=100)):
+        for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -30,7 +30,7 @@ def train(args, model, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_epochs):
         model.train()
         print('Epoch: {}'.format(epoch + 1))
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=100)):
+        for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -67,7 +67,7 @@ def retrain(args, model, mask, device, train_loader, test_loader, optimizer):
     for epoch in range(args.num_re_epochs):
         print('Re epoch: {}'.format(epoch + 1))
         model.train()
-        for batch_idx, (data, target) in enumerate(tqdm(train_loader, ascii=True, ncols=100)):
+        for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
             output = model(data)
@@ -173,8 +173,10 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
-    model_file = "mnist_cnn{}.pt".format("_structured" if args.structured else "") if args.dataset == "mnist" \
-            else 'cifar10_cnn{}.pt'.format("_structured" if args.structured else "")
+    structured_tag = "_structured{}x{}".format(args.n1, args.n2) if args.structured else ""
+
+    model_file = "mnist_cnn{}.pt".format(structured_tag) if args.dataset == "mnist" \
+            else 'cifar10_cnn{}.pt'.format(structured_tag)
 
     if args.stat or args.test:
         print("=> loading model '{}'".format(model_file))
