@@ -211,12 +211,16 @@ def print_prune(model):
                  100 * (total_param - prune_param) / total_param))
 
 def show_statistic_result(args, model):
-    n_non_zero = [0, 0, 0, 0, 0]
+    n_non_zero = {}
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
             rram_proj = param.detach().cpu().clone().view(param.shape[0], -1).T
             for i in range((rram_proj.shape[0] - 1) // args.n1 + 1):
                 for j in range((rram_proj.shape[1] - 1) // args.n2 + 1):
                     ou = rram_proj[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2]
-                    n_non_zero[ou.nonzero().shape[0]] += 1
+                    n = ou.nonzero().shape[0]
+                    if n in n_non_zero:
+                        n_non_zero[n] += 1
+                    else:
+                        n_non_zero[n] = 1
     print("n_non_zero: {}".format(n_non_zero))
