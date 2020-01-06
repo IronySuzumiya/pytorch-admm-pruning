@@ -148,7 +148,7 @@ def prune_weight(args, param, device, percent):
         pcen = np.percentile(abs(weight), 100*percent)
         under_threshold = abs(weight) < pcen
         weight.data[under_threshold] = 0
-        mask = torch.Tensor(abs(weight) >= pcen, dtype=torch.bool).to(device)
+        mask = (abs(weight) >= pcen).to(device)
 
     return mask
 
