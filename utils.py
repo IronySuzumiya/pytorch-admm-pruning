@@ -1,7 +1,6 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
-import collections
 
 def regularized_nll_loss(args, model, output, target):
     index = 0
@@ -211,7 +210,7 @@ def print_prune(model):
                  100 * (total_param - prune_param) / total_param))
 
 def show_statistic_result(args, model):
-    n_non_zero = collections.OrderedDict()
+    n_non_zero = {}
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
             rram_proj = param.detach().cpu().clone().view(param.shape[0], -1).T
