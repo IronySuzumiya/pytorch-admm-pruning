@@ -57,6 +57,12 @@ def scale(input, shape, n1, n2):
     return output
 
 
+def kronecker(A, B):
+    AB = torch.einsum("ab,cd->acbd", A, B)
+    AB = AB.view(A.size(0)*B.size(0), A.size(1)*B.size(1))
+    return AB
+
+
 def update_Z(X, U, args):
     new_Z = ()
     idx = 0
@@ -118,7 +124,9 @@ def prune_weight(args, param, device, percent):
     weight = param.detach().cpu().clone()
 
     if args.structured:
+        mask = torch.zeros_like(weight, dtype=torch.bool)
         rram = weight.view(weight.shape[0], -1).T
+        rram_mask = mask.view(mask.shape[0], -1).T
         tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
         for i in range(tmp.shape[0]):
             for j in range(tmp.shape[1]):
@@ -130,17 +138,18 @@ def prune_weight(args, param, device, percent):
         for i in range(n1):
             for j in range(n2):
                 if i < res1 or res1 == 0:
-                    rram.data[i::n1, j::n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                    rram_mask.data[i::n1, j::n2] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                 else:
-                    rram.data[i::n1, j::n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+                    rram_mask.data[i::n1, j::n2] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+                rram.data[i::n1, j::n2] *= rram_mask.data[i::n1, j::n2]
         #under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
         #rram_proj.data[under_threshold] = 0
     else:
         pcen = np.percentile(abs(weight), 100*percent)
         under_threshold = abs(weight) < pcen
         weight.data[under_threshold] = 0
+        mask = torch.Tensor(abs(weight) >= pcen).to(device)
 
-    mask = torch.Tensor(abs(weight) >= pcen).to(device)
     return mask
 
 
