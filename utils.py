@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from torch.multiprocessing import Pool, Manager
 
 n1 = 2
 n2 = 2
@@ -62,14 +63,23 @@ def update_Z(X, U, args):
     for x, u in zip(X, U):
         z = x + u
         if args.structured:
-            rram_proj = z.view(z.shape[0], -1).T
-            tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
+            rram = z.view(z.shape[0], -1).T
+            tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
             for i in range(tmp.shape[0]):
                 for j in range(tmp.shape[1]):
-                    tmp[i, j] = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+                    tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
             pcen = np.percentile(tmp, 100*args.percent[idx])
-            under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
-            rram_proj.data[under_threshold] = 0
+            upon_threshold = (tmp >= pcen).type(rram.type())
+            res1 = rram.shape[0] % n1
+            res2 = rram.shape[1] % n2
+            for i in range(n1):
+                for j in range(n2):
+                    if i < res1 or res1 == 0:
+                        rram.data[i::n1, j::n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                    else:
+                        rram.data[i::n1, j::n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+            #under_threshold = scale(tmp < pcen, rram.shape, n1, n2)
+            #rram.data[under_threshold] = 0
         else:
             pcen = np.percentile(abs(z), 100*args.percent[idx])
             under_threshold = abs(z) < pcen
@@ -108,14 +118,23 @@ def prune_weight(args, param, device, percent):
     weight = param.detach().cpu().clone()
 
     if args.structured:
-        rram_proj = weight.view(weight.shape[0], -1).T
-        tmp = torch.zeros(((rram_proj.shape[0] - 1) // n1 + 1, (rram_proj.shape[1] - 1) // n2 + 1))
+        rram = weight.view(weight.shape[0], -1).T
+        tmp = torch.zeros(((rram.shape[0] - 1) // n1 + 1, (rram.shape[1] - 1) // n2 + 1))
         for i in range(tmp.shape[0]):
             for j in range(tmp.shape[1]):
-                tmp[i, j] = rram_proj[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
+                tmp[i, j] = rram[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2].norm()
         pcen = np.percentile(tmp, 100*percent)
-        under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
-        rram_proj.data[under_threshold] = 0
+        upon_threshold = (tmp >= pcen).type(rram.type())
+        res1 = rram.shape[0] % n1
+        res2 = rram.shape[1] % n2
+        for i in range(n1):
+            for j in range(n2):
+                if i < res1 or res1 == 0:
+                    rram.data[i::n1, j::n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                else:
+                    rram.data[i::n1, j::n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+        #under_threshold = scale(tmp < pcen, rram_proj.shape, n1, n2)
+        #rram_proj.data[under_threshold] = 0
     else:
         pcen = np.percentile(abs(weight), 100*percent)
         under_threshold = abs(weight) < pcen
