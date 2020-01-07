@@ -27,6 +27,11 @@ $ python main.py --l2 --save-model --dataset cifar10
 $ python main.py --l2 --structured --save-model
 ```
 
+- You can change ReRAM OU size by
+```
+$ python main.py --l2 --structured --n1=4 --n2=4 --save-model
+```
+
 - You can check the statistic result by
 ```
 $ python main.py --l2 --structured --stat
