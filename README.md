@@ -24,22 +24,22 @@ $ python main.py --l2 --save-model --dataset cifar10
 
 - To enable ReRAM-adapted structural ADMM pruning, run code by
 ```
-$ python main.py --l2 --structured --save-model
+$ python main.py --l2 --struct --save-model
 ```
 
 - You can change ReRAM OU size by
 ```
-$ python main.py --l2 --structured --n1=4 --n2=4 --save-model
+$ python main.py --l2 --struct --n1=4 --n2=4 --save-model
 ```
 
 - You can check the statistic result by
 ```
-$ python main.py --l2 --structured --stat
+$ python main.py --l2 --struct --stat
 ```
 
 - You can test the current trained model by
 ```
-$ python main.py --l2 --structured --test
+$ python main.py --l2 --struct --test
 ```
 
 ## _Models_

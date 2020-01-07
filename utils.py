@@ -64,7 +64,7 @@ def update_Z(X, U, args):
     idx = 0
     for x, u in zip(X, U):
         z = x + u
-        if args.structured:
+        if args.struct:
             rram = z.view(z.shape[0], -1).T
             tmp = torch.zeros(((rram.shape[0] - 1) // args.n1 + 1, (rram.shape[1] - 1) // args.n2 + 1))
             for i in range(tmp.shape[0]):
@@ -117,7 +117,7 @@ def update_U(U, X, Z):
 
 def prune_weight(args, param, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
-    if args.structured:
+    if args.struct:
         weight = param.detach().to(device).clone()
         mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
         rram = weight.view(weight.shape[0], -1).T

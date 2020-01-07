@@ -113,8 +113,8 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--structured', action='store_true', default=False,
-                        help='Enabling Structured Pruning')
+    parser.add_argument('--struct', action='store_true', default=False,
+                        help='Enabling struct Pruning')
     parser.add_argument('--test', action='store_true', default=False,
                         help='For Testing the current Model')
     parser.add_argument('--stat', action='store_true', default=False,
@@ -138,14 +138,14 @@ def main():
             datasets.MNIST('data', train=True, download=True,
                            transform=transforms.Compose([
                                transforms.ToTensor(),
-                               transforms.Normalize((0.1307,), (0.3081,))
+                               #transforms.Normalize((0.1307,), (0.3081,))
                            ])),
             batch_size=args.batch_size, shuffle=True, **kwargs)
 
         test_loader = torch.utils.data.DataLoader(
             datasets.MNIST('data', train=False, transform=transforms.Compose([
                                transforms.ToTensor(),
-                               transforms.Normalize((0.1307,), (0.3081,))
+                               #transforms.Normalize((0.1307,), (0.3081,))
                            ])),
             batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
@@ -173,10 +173,10 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
-    structured_tag = "_structured{}x{}".format(args.n1, args.n2) if args.structured else ""
+    struct_tag = "_struct{}x{}".format(args.n1, args.n2) if args.struct else ""
 
-    model_file = "mnist_cnn{}.pt".format(structured_tag) if args.dataset == "mnist" \
-            else 'cifar10_cnn{}.pt'.format(structured_tag)
+    model_file = "mnist_cnn{}.pt".format(struct_tag) if args.dataset == "mnist" \
+            else 'cifar10_cnn{}.pt'.format(struct_tag)
 
     if args.stat or args.test:
         print("=> loading model '{}'".format(model_file))
