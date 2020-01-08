@@ -10,11 +10,14 @@ from utils import regularized_nll_loss, admm_loss, \
 from torchvision import datasets, transforms
 #from tqdm import tqdm
 import os
+import time
 
 def pre_train(args, model, device, train_loader, test_loader, optimizer):
+    pre_train_start = time.time()
     for epoch in range(args.num_pre_epochs):
         print('Pre epoch: {}'.format(epoch + 1))
         model.train()
+        epoch_start = time.time()
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -22,14 +25,20 @@ def pre_train(args, model, device, train_loader, test_loader, optimizer):
             loss = regularized_nll_loss(args, model, output, target)
             loss.backward()
             optimizer.step()
+        epoch_end = time.time()
+        print("pre-train epoch time cost: {}".format(epoch_end - epoch_start))
         test(args, model, device, test_loader)
+    pre_train_end = time.time()
+    print("pre-train total time cost: {}".format(pre_train_end - pre_train_start))
 
 
 def train(args, model, device, train_loader, test_loader, optimizer):
+    train_start = time.time()
     Z, U = initialize_Z_and_U(model, device)
     for epoch in range(args.num_epochs):
-        model.train()
         print('Epoch: {}'.format(epoch + 1))
+        model.train()
+        epoch_start = time.time()
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -37,11 +46,18 @@ def train(args, model, device, train_loader, test_loader, optimizer):
             loss = admm_loss(args, device, model, Z, U, output, target)
             loss.backward()
             optimizer.step()
+        epoch_end = time.time()
+        print("train epoch time cost: {}".format(epoch_end - epoch_start))
+        admm_step_start = time.time()
         X = update_X(model, device)
         Z = update_Z_l1(X, U, args) if args.l1 else update_Z(X, U, args, device)
         U = update_U(U, X, Z)
+        admm_step_end = time.time()
+        print("admm step time cost: {}".format(admm_step_end - admm_step_start))
         print_convergence(model, X, Z)
         test(args, model, device, test_loader)
+    train_end = time.time()
+    print("train total time cost: {}".format(train_end - train_start))
 
 
 def test(args, model, device, test_loader):
@@ -64,9 +80,11 @@ def test(args, model, device, test_loader):
 
 
 def retrain(args, model, mask, device, train_loader, test_loader, optimizer):
+    retrain_start = time.time()
     for epoch in range(args.num_re_epochs):
         print('Re epoch: {}'.format(epoch + 1))
         model.train()
+        epoch_start = time.time()
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
             optimizer.zero_grad()
@@ -74,8 +92,11 @@ def retrain(args, model, mask, device, train_loader, test_loader, optimizer):
             loss = F.nll_loss(output, target)
             loss.backward()
             optimizer.prune_step(mask)
-
+        epoch_end = time.time()
+        print("retrain epoch time cost: {}".format(epoch_end - epoch_start))
         test(args, model, device, test_loader)
+    retrain_end = time.time()
+    print("retrain total time cost: {}".format(retrain_end - retrain_start))
 
 
 def main():
