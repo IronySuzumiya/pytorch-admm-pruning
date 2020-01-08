@@ -27,29 +27,29 @@ def admm_loss(args, device, model, Z, U, output, target):
     return loss
 
 
-def initialize_Z_and_U(model):
+def initialize_Z_and_U(model, device):
     Z = ()
     U = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            Z += (param.detach().cpu().clone(),)
-            U += (torch.zeros_like(param).cpu(),)
+            Z += (param.detach().clone().to(device),)
+            U += (torch.zeros_like(param).to(device),)
     return Z, U
 
 
-def update_X(model):
+def update_X(model, device):
     X = ()
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
-            X += (param.detach().cpu().clone(),)
+            X += (param.detach().clone().to(device),)
     return X
 
 
-def scale(input, shape, n1, n2):
+def scale(input, shape, ou_h, ou_w):
     output = torch.zeros((shape[0], shape[1]), dtype=torch.bool)
     for i in range(input.shape[0]):
         for j in range(input.shape[1]):
-            output[i * n1 : (i + 1) * n1, j * n2 : (j + 1) * n2] = input[i, j]
+            output[i * ou_h : (i + 1) * ou_h, j * ou_w : (j + 1) * ou_w] = input[i, j]
     return output
 
 
@@ -59,31 +59,31 @@ def kronecker(A, B):
     return AB
 
 
-def update_Z(X, U, args):
+def update_Z(X, U, args, device):
     new_Z = ()
     idx = 0
     for x, u in zip(X, U):
         z = x + u
         if args.struct:
             rram = z.view(z.shape[0], -1).T
-            tmp = torch.zeros(((rram.shape[0] - 1) // args.n1 + 1, (rram.shape[1] - 1) // args.n2 + 1))
+            tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
             for i in range(tmp.shape[0]):
                 for j in range(tmp.shape[1]):
-                    tmp[i, j] = rram[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2].norm()
-            pcen = np.percentile(tmp, 100*args.percent[idx])
+                    tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
+            pcen, _ = torch.kthvalue(tmp.view(-1), args.percent[idx] * tmp.shape[0] * tmp.shape[1])
             upon_threshold = tmp >= pcen
-            res1 = rram.shape[0] % args.n1
-            res2 = rram.shape[1] % args.n2
-            for i in range(args.n1):
-                for j in range(args.n2):
+            res1 = rram.shape[0] % args.ou_h
+            res2 = rram.shape[1] % args.ou_w
+            for i in range(args.ou_h):
+                for j in range(args.ou_w):
                     if i < res1 or res1 == 0:
-                        rram.data[i::args.n1, j::args.n2] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                        rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                     else:
-                        rram.data[i::args.n1, j::args.n2] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
-            #under_threshold = scale(tmp < pcen, rram.shape, args.n1, args.n2)
+                        rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+            #under_threshold = scale(tmp < pcen, rram.shape, args.ou_h, args.ou_w)
             #rram.data[under_threshold] = 0
         else:
-            pcen = np.percentile(abs(z), 100*args.percent[idx])
+            pcen, _ = torch.kthvalue(abs(z), args.percent[idx] * z.shape[0] * z.shape[1] * z.shapa[2] * z.shape[3])
             under_threshold = abs(z) < pcen
             z.data[under_threshold] = 0
         new_Z += (z,)
@@ -117,33 +117,29 @@ def update_U(U, X, Z):
 
 def prune_weight(args, param, device, percent):
     # to work with admm, we calculate percentile based on all elements instead of nonzero elements.
+    weight = param.detach()
     if args.struct:
-        weight = param.detach().to(device).clone()
         mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
         rram = weight.view(weight.shape[0], -1).T
         rram_mask = mask.view(mask.shape[0], -1).T
-        tmp = torch.zeros(((rram.shape[0] - 1) // args.n1 + 1, (rram.shape[1] - 1) // args.n2 + 1))
+        tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1))
         for i in range(tmp.shape[0]):
             for j in range(tmp.shape[1]):
-                tmp[i, j] = rram[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2].norm()
-        pcen = np.percentile(tmp, 100*percent)
+                tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
+        pcen, _ = torch.kthvalue(tmp.view(-1), percent * tmp.shape[0] * tmp.shape[1])
         upon_threshold = tmp >= pcen
-        res1 = rram.shape[0] % args.n1
-        res2 = rram.shape[1] % args.n2
-        for i in range(args.n1):
-            for j in range(args.n2):
+        res1 = rram.shape[0] % args.ou_h
+        res2 = rram.shape[1] % args.ou_w
+        for i in range(args.ou_h):
+            for j in range(args.ou_w):
                 if i < res1 or res1 == 0:
-                    rram_mask.data[i::args.n1, j::args.n2] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
+                    rram_mask.data[i::args.ou_h, j::args.ou_w] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                 else:
-                    rram_mask.data[i::args.n1, j::args.n2] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
-                rram.data[i::args.n1, j::args.n2] *= rram_mask.data[i::args.n1, j::args.n2]
-        #under_threshold = scale(tmp < pcen, rram_proj.shape, args.n1, args.n2)
+                    rram_mask.data[i::args.ou_h, j::args.ou_w] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+        #under_threshold = scale(tmp < pcen, rram_proj.shape, args.ou_h, args.ou_w)
         #rram_proj.data[under_threshold] = 0
     else:
-        weight = param.detach().cpu().clone()
-        pcen = np.percentile(abs(weight), 100*percent)
-        under_threshold = abs(weight) < pcen
-        weight.data[under_threshold] = 0
+        pcen, _ = torch.kthvalue(abs(weight), percent * weight.shape[0] * weight.shape[1] * weight.shapa[2] * weight.shape[3])
         mask = (abs(weight) >= pcen).to(device)
 
     return mask
@@ -222,9 +218,9 @@ def show_statistic_result(args, model):
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
             rram_proj = param.view(param.shape[0], -1).T
-            for i in range((rram_proj.shape[0] - 1) // args.n1 + 1):
-                for j in range((rram_proj.shape[1] - 1) // args.n2 + 1):
-                    ou = rram_proj[i * args.n1 : (i + 1) * args.n1, j * args.n2 : (j + 1) * args.n2]
+            for i in range((rram_proj.shape[0] - 1) // args.ou_h + 1):
+                for j in range((rram_proj.shape[1] - 1) // args.ou_w + 1):
+                    ou = rram_proj[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w]
                     update_dict(n_ou_with_nonzero, ou.nonzero().shape[0])
                     update_dict(n_ou_with_positive, (ou > 0).nonzero().shape[0])
                     update_dict(n_ou_with_negative, (ou < 0).nonzero().shape[0])

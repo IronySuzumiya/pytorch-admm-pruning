@@ -26,7 +26,7 @@ def pre_train(args, model, device, train_loader, test_loader, optimizer):
 
 
 def train(args, model, device, train_loader, test_loader, optimizer):
-    Z, U = initialize_Z_and_U(model)
+    Z, U = initialize_Z_and_U(model, device)
     for epoch in range(args.num_epochs):
         model.train()
         print('Epoch: {}'.format(epoch + 1))
@@ -37,8 +37,8 @@ def train(args, model, device, train_loader, test_loader, optimizer):
             loss = admm_loss(args, device, model, Z, U, output, target)
             loss.backward()
             optimizer.step()
-        X = update_X(model)
-        Z = update_Z_l1(X, U, args) if args.l1 else update_Z(X, U, args)
+        X = update_X(model, device)
+        Z = update_Z_l1(X, U, args) if args.l1 else update_Z(X, U, args, device)
         U = update_U(U, X, Z)
         print_convergence(model, X, Z)
         test(args, model, device, test_loader)
@@ -119,10 +119,10 @@ def main():
                         help='For Testing the current Model')
     parser.add_argument('--stat', action='store_true', default=False,
                         help='For showing the statistic result of the current Model')
-    parser.add_argument('--n1', type=int, default=2, metavar='N',
-                        help='ReRAM OU size (row number) (default: 2)')
-    parser.add_argument('--n2', type=int, default=2, metavar='N',
-                        help='ReRAM OU size (column number) (default: 2)')
+    parser.add_argument('--ou-h', type=int, default=2, metavar='N',
+                        help='ReRAM OU height (default: 2)')
+    parser.add_argument('--ou-w', type=int, default=2, metavar='N',
+                        help='ReRAM OU width (default: 2)')
     args = parser.parse_args()
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -173,7 +173,7 @@ def main():
     model = LeNet().to(device) if args.dataset == "mnist" else AlexNet().to(device)
     optimizer = PruneAdam(model.named_parameters(), lr=args.lr, eps=args.adam_epsilon)
 
-    struct_tag = "_struct{}x{}".format(args.n1, args.n2) if args.struct else ""
+    struct_tag = "_struct{}x{}".format(args.ou_h, args.ou_w) if args.struct else ""
 
     model_file = "mnist_cnn{}.pt".format(struct_tag) if args.dataset == "mnist" \
             else 'cifar10_cnn{}.pt'.format(struct_tag)

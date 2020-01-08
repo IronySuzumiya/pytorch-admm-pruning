@@ -29,7 +29,7 @@ $ python main.py --l2 --struct --save-model
 
 - You can change ReRAM OU size by
 ```
-$ python main.py --l2 --struct --n1=4 --n2=4 --save-model
+$ python main.py --l2 --struct --ou-h=4 --ou-w=4 --save-model
 ```
 
 - You can check the statistic result by
