@@ -83,7 +83,7 @@ def update_Z(X, U, args, device):
             #under_threshold = scale(tmp < pcen, rram.shape, args.ou_h, args.ou_w)
             #rram.data[under_threshold] = 0
         else:
-            pcen, _ = torch.kthvalue(abs(z), round(args.percent[idx] * z.shape[0] * z.shape[1] * z.shapa[2] * z.shape[3]))
+            pcen, _ = torch.kthvalue(abs(z), round(args.percent[idx] * z.shape[0] * z.shape[1] * z.shape[2] * z.shape[3]))
             under_threshold = abs(z) < pcen
             z.data[under_threshold] = 0
         new_Z += (z,)
@@ -139,7 +139,7 @@ def prune_weight(args, param, device, percent):
         #under_threshold = scale(tmp < pcen, rram_proj.shape, args.ou_h, args.ou_w)
         #rram_proj.data[under_threshold] = 0
     else:
-        pcen, _ = torch.kthvalue(abs(weight), round(percent * weight.shape[0] * weight.shape[1] * weight.shapa[2] * weight.shape[3]))
+        pcen, _ = torch.kthvalue(abs(weight), round(percent * weight.shape[0] * weight.shape[1] * weight.shape[2] * weight.shape[3]))
         mask = (abs(weight) >= pcen).to(device)
 
     return mask
