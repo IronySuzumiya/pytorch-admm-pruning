@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+import time
 
 def regularized_nll_loss(args, model, output, target):
     index = 0
@@ -67,23 +68,32 @@ def update_Z(X, U, args, device):
         if args.struct:
             rram = z.view(z.shape[0], -1).T
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
+            norm_start = time.time()
             for i in range(tmp.shape[0]):
                 for j in range(tmp.shape[1]):
                     tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
+            norm_end = time.time()
+            print("norm computation time cost: {}".format(norm_end - norm_start))
+            kth_start = time.time()
             pcen, _ = torch.kthvalue(tmp.view(-1), round(args.percent[idx] * tmp.shape[0] * tmp.shape[1]))
+            kth_end = time.time()
+            print("kthvalue computation time cost: {}".format(kth_end - kth_start))
             upon_threshold = tmp >= pcen
             res1 = rram.shape[0] % args.ou_h
             res2 = rram.shape[1] % args.ou_w
+            update_start = time.time()
             for i in range(args.ou_h):
                 for j in range(args.ou_w):
                     if i < res1 or res1 == 0:
                         rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                     else:
                         rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+            update_end = time.time()
+            print("Z updating time cost: {}".format(update_end - update_start))
             #under_threshold = scale(tmp < pcen, rram.shape, args.ou_h, args.ou_w)
             #rram.data[under_threshold] = 0
         else:
-            pcen, _ = torch.kthvalue(abs(z), round(args.percent[idx] * z.shape[0] * z.shape[1] * z.shape[2] * z.shape[3]))
+            pcen, _ = torch.kthvalue(abs(z.view(-1)), round(args.percent[idx] * z.shape[0] * z.shape[1] * z.shape[2] * z.shape[3]))
             under_threshold = abs(z) < pcen
             z.data[under_threshold] = 0
         new_Z += (z,)
@@ -139,7 +149,7 @@ def prune_weight(args, param, device, percent):
         #under_threshold = scale(tmp < pcen, rram_proj.shape, args.ou_h, args.ou_w)
         #rram_proj.data[under_threshold] = 0
     else:
-        pcen, _ = torch.kthvalue(abs(weight), round(percent * weight.shape[0] * weight.shape[1] * weight.shape[2] * weight.shape[3]))
+        pcen, _ = torch.kthvalue(abs(weight.view(-1)), round(percent * weight.shape[0] * weight.shape[1] * weight.shape[2] * weight.shape[3]))
         mask = (abs(weight) >= pcen).to(device)
 
     return mask
@@ -155,16 +165,22 @@ def prune_l1_weight(weight, device, delta):
 
 def apply_prune(model, device, args):
     # returns dictionary of non_zero_values' indices
+    prune_start = time.time()
     print("Apply Pruning based on percentile")
     dict_mask = {}
     idx = 0
     for name, param in model.named_parameters():
         if name.split('.')[-1] == "weight":
+            layer_prune_start = time.time()
             mask = prune_weight(args, param, device, args.percent[idx])
             param.data.mul_(mask)
+            layer_prune_end = time.time()
+            print("layer pruning time cost: {}".format(layer_prune_end - layer_prune_start))
             # param.data = torch.Tensor(weight_pruned).to(device)
             dict_mask[name] = mask
             idx += 1
+    prune_end = time.time()
+    print("network pruning total time cost: {}".format(prune_end - prune_start))
     return dict_mask
 
 
