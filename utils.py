@@ -68,7 +68,7 @@ def update_Z(X, U, args, device):
         z = x + u
         if args.struct:
             rram = z.contiguous().view(z.shape[0], -1).T
-            print('rram is contiguous?: ' + rram.is_contiguous())
+            print('rram is contiguous?: ' + str(rram.is_contiguous()))
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
             norm_start = time.time()
             norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
