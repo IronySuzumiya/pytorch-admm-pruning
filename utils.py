@@ -69,29 +69,29 @@ def update_Z(X, U, args, device):
         if args.struct:
             rram = z.view(z.shape[0], -1).T.contiguous()
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
-            norm_start = time.time()
+            #norm_start = time.time()
             norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
             #for i in range(tmp.shape[0]):
             #    for j in range(tmp.shape[1]):
             #        tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
-            norm_end = time.time()
-            print("norm computation time cost: {}".format(norm_end - norm_start))
-            kth_start = time.time()
+            #norm_end = time.time()
+            #print("norm computation time cost: {}".format(norm_end - norm_start))
+            #kth_start = time.time()
             pcen, _ = torch.kthvalue(tmp.view(-1), round(args.percent[idx] * tmp.shape[0] * tmp.shape[1]))
-            kth_end = time.time()
-            print("kthvalue computation time cost: {}".format(kth_end - kth_start))
+            #kth_end = time.time()
+            #print("kthvalue computation time cost: {}".format(kth_end - kth_start))
             upon_threshold = tmp >= pcen
             res1 = rram.shape[0] % args.ou_h
             res2 = rram.shape[1] % args.ou_w
-            update_start = time.time()
+            #update_start = time.time()
             for i in range(args.ou_h):
                 for j in range(args.ou_w):
                     if i < res1 or res1 == 0:
                         rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                     else:
                         rram.data[i::args.ou_h, j::args.ou_w] *= upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
-            update_end = time.time()
-            print("Z updating time cost: {}".format(update_end - update_start))
+            #update_end = time.time()
+            #print("Z updating time cost: {}".format(update_end - update_start))
             #under_threshold = scale(tmp < pcen, rram.shape, args.ou_h, args.ou_w)
             #rram.data[under_threshold] = 0
             new_Z += (z.contiguous(),)
