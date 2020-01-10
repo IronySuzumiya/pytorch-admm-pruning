@@ -67,7 +67,7 @@ def update_Z(X, U, args, device):
     for x, u in zip(X, U):
         z = x + u
         if args.struct:
-            rram = z.view(z.shape[0], -1).T
+            rram = z.contiguous().view(z.shape[0], -1).T
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
             norm_start = time.time()
             norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
@@ -132,12 +132,13 @@ def prune_weight(args, param, device, percent):
     weight = param.detach()
     if args.struct:
         mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
-        rram = weight.view(weight.shape[0], -1).T
-        rram_mask = mask.view(mask.shape[0], -1).T
+        rram = weight.contiguous().view(weight.shape[0], -1).T
+        rram_mask = mask.contiguous().view(mask.shape[0], -1).T
         tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1))
-        for i in range(tmp.shape[0]):
-            for j in range(tmp.shape[1]):
-                tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
+        norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
+        #for i in range(tmp.shape[0]):
+        #    for j in range(tmp.shape[1]):
+        #        tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
         pcen, _ = torch.kthvalue(tmp.view(-1), round(percent * tmp.shape[0] * tmp.shape[1]))
         upon_threshold = tmp >= pcen
         res1 = rram.shape[0] % args.ou_h
