@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 import time
+import norm_cuda
 
 def regularized_nll_loss(args, model, output, target):
     index = 0
@@ -69,9 +70,10 @@ def update_Z(X, U, args, device):
             rram = z.view(z.shape[0], -1).T
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
             norm_start = time.time()
-            for i in range(tmp.shape[0]):
-                for j in range(tmp.shape[1]):
-                    tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
+            norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
+            #for i in range(tmp.shape[0]):
+            #    for j in range(tmp.shape[1]):
+            #        tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
             norm_end = time.time()
             print("norm computation time cost: {}".format(norm_end - norm_start))
             kth_start = time.time()

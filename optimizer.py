@@ -305,6 +305,9 @@ class PruneAdam(NameOptimizer):
 
                 state['step'] += 1
 
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
+
                 if group['weight_decay'] != 0:
                     grad.add_(group['weight_decay'], p.data)
 
@@ -319,8 +322,6 @@ class PruneAdam(NameOptimizer):
                 else:
                     denom = exp_avg_sq.sqrt().add_(group['eps'])
 
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
                 p.data.addcdiv_(-step_size, exp_avg, denom)
@@ -366,6 +367,8 @@ class PruneAdam(NameOptimizer):
                 beta1, beta2 = group['betas']
 
                 state['step'] += 1
+                bias_correction1 = 1 - beta1 ** state['step']
+                bias_correction2 = 1 - beta2 ** state['step']
 
                 if group['weight_decay'] != 0:
                     grad.add_(group['weight_decay'], p.data)
@@ -384,9 +387,7 @@ class PruneAdam(NameOptimizer):
                     denom = max_exp_avg_sq.sqrt().add_(group['eps'])
                 else:
                     denom = exp_avg_sq.sqrt().add_(group['eps'])
-
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
+                    
                 step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1
 
                 if name.split('.')[-1] == "weight":
