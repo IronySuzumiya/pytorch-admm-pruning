@@ -35,9 +35,9 @@ void norm_cuda(
   const auto WeightsSizeX = weights.size(0);
   const auto WeightsSizeY = weights.size(1);
   const auto NormSizeX = out_norm.size(0);
-  const auto NormSizeX = out_norm.size(1);
+  const auto NormSizeY = out_norm.size(1);
   dim3 threadDim(8, 8);
-  dim3 blockDim(((normSizeX - 1) / 8 + 1), ((normSizeY - 1) / 8 + 1));
+  dim3 blockDim(((NormSizeX - 1) / 8 + 1), ((NormSizeY - 1) / 8 + 1));
   
   AT_DISPATCH_FLOATING_TYPES(weights.type(), "norm_cuda", ([&] {
     norm_cuda_kernel<scalar_t><<<blockDim, threadDim>>>(
@@ -47,7 +47,7 @@ void norm_cuda(
         ou_h,
         WeightsSizeX,
         WeightsSizeY,
-        normSizeX,
-        normSizeY);
+        NormSizeX,
+        NormSizeY);
   }));
 }
