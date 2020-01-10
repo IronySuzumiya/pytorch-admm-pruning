@@ -67,8 +67,7 @@ def update_Z(X, U, args, device):
     for x, u in zip(X, U):
         z = x + u
         if args.struct:
-            rram = z.contiguous().view(z.shape[0], -1).T
-            print('rram is contiguous?: ' + str(rram.is_contiguous()))
+            rram = z.view(z.shape[0], -1).T.contiguous()
             tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1)).to(device)
             norm_start = time.time()
             norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
@@ -95,11 +94,12 @@ def update_Z(X, U, args, device):
             print("Z updating time cost: {}".format(update_end - update_start))
             #under_threshold = scale(tmp < pcen, rram.shape, args.ou_h, args.ou_w)
             #rram.data[under_threshold] = 0
+            new_Z += (z.contiguous(),)
         else:
             pcen, _ = torch.kthvalue(abs(z.view(-1)), round(args.percent[idx] * z.view(-1).shape[0]))
             under_threshold = abs(z) < pcen
             z.data[under_threshold] = 0
-        new_Z += (z,)
+            new_Z += (z,)
         idx += 1
     return new_Z
 
@@ -133,8 +133,8 @@ def prune_weight(args, param, device, percent):
     weight = param.detach()
     if args.struct:
         mask = torch.zeros_like(weight, dtype=torch.bool).to(device)
-        rram = weight.contiguous().view(weight.shape[0], -1).T
-        rram_mask = mask.contiguous().view(mask.shape[0], -1).T
+        rram = weight.view(weight.shape[0], -1).T.contiguous()
+        rram_mask = mask.view(mask.shape[0], -1).T.contiguous()
         tmp = torch.zeros(((rram.shape[0] - 1) // args.ou_h + 1, (rram.shape[1] - 1) // args.ou_w + 1))
         norm_cuda.norm(rram, tmp, args.ou_h, args.ou_w)
         #for i in range(tmp.shape[0]):
@@ -150,6 +150,7 @@ def prune_weight(args, param, device, percent):
                     rram_mask.data[i::args.ou_h, j::args.ou_w] = upon_threshold if j < res2 or res2 == 0 else upon_threshold[:, :-1]
                 else:
                     rram_mask.data[i::args.ou_h, j::args.ou_w] = upon_threshold[:-1, :] if j < res2 or res2 == 0 else upon_threshold[:-1, :-1]
+        mask = mask.contiguous()
         #under_threshold = scale(tmp < pcen, rram_proj.shape, args.ou_h, args.ou_w)
         #rram_proj.data[under_threshold] = 0
     else:
