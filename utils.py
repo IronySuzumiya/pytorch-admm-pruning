@@ -77,7 +77,7 @@ def update_Z(X, U, args, device):
             #norm_end = time.time()
             #print("norm computation time cost: {}".format(norm_end - norm_start))
             #kth_start = time.time()
-            pcen, _ = torch.kthvalue(tmp.view(-1), round(args.percent[idx] * tmp.shape[0] * tmp.shape[1]))
+            pcen, _ = tmp.view(-1).kthvalue(round(args.percent[idx] * tmp.shape[0] * tmp.shape[1]))
             #kth_end = time.time()
             #print("kthvalue computation time cost: {}".format(kth_end - kth_start))
             upon_threshold = tmp >= pcen
@@ -139,7 +139,7 @@ def prune_weight(args, param, device, percent):
         #for i in range(tmp.shape[0]):
         #    for j in range(tmp.shape[1]):
         #        tmp[i, j] = rram[i * args.ou_h : (i + 1) * args.ou_h, j * args.ou_w : (j + 1) * args.ou_w].norm()
-        pcen, _ = torch.kthvalue(tmp.view(-1), round(percent * tmp.shape[0] * tmp.shape[1]))
+        pcen, _ = tmp.view(-1).kthvalue(round(percent * tmp.shape[0] * tmp.shape[1]))
         upon_threshold = tmp >= pcen
         res1 = rram.shape[0] % args.ou_w
         res2 = rram.shape[1] % args.ou_h
